@@ -27,7 +27,7 @@ async def send_chunks(
 ):
     for chunk in chunks:
         if isinstance(chunk, bytes):
-            await channel.send(file=discord.File(BytesIO(chunk), "location.png"))
+            await channel.send(file=discord.File(BytesIO(chunk), "location.png"))  # type: ignore
         elif isinstance(chunk, str):
             await channel.send(chunk)
         await asyncio.sleep(0.5)
@@ -63,11 +63,24 @@ class Message(commands.Cog):
         self.reply_locations: dict[int, list[Location]] = {}
         self.current_messages: dict[int, asyncio.Task] = {}
         self.finding_locations: dict[int, bool] = {}
+        self.queue_count: dict[int, int] = {}
+        self.queue_at: dict[int, int] = {}
 
     async def cancel_message(self, channel: discord.TextChannel | discord.DMChannel):
         if isinstance(self.finding_locations.get(channel.id), bool):
-            while self.finding_locations.get(channel.id):
+            self.queue_at[channel.id] = self.queue_at.get(channel.id, 0)
+            queue_number = self.queue_count.get(channel.id, 0)
+            self.queue_count[channel.id] = queue_number + 1
+            while (
+                self.finding_locations.get(channel.id)
+                or queue_number != self.queue_at[channel.id]
+            ):
                 await asyncio.sleep(0.5)
+            self.queue_at[channel.id] += 1
+            if self.queue_at[channel.id] == self.queue_count[channel.id]:
+                del self.queue_at[channel.id]
+                del self.queue_count[channel.id]
+
         self.finding_locations[channel.id] = True
 
         if current_task := self.current_messages.get(channel.id):
@@ -119,9 +132,9 @@ class Message(commands.Cog):
         await self.cancel_message(interaction.channel)
         if not self.reply_locations.get(interaction.channel.id):
             if interaction.response.is_done():
-                await interaction.followup.send("No locations to continue...")
+                await interaction.followup.send("No locations to continue.")
             else:
-                await interaction.response.send_message("No locations to continue...")
+                await interaction.response.send_message("No locations to continue.")
             self.finding_locations[interaction.channel.id] = False
             return
 
