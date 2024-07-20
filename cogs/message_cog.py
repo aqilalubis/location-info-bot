@@ -27,9 +27,9 @@ async def send_chunks(
 ):
     for chunk in chunks:
         if isinstance(chunk, bytes):
-            await channel.send(file=discord.File(BytesIO(chunk), "location.png"))  # type: ignore
+            await channel.send(file=discord.File(BytesIO(chunk), "location.png"), silent=True)  # type: ignore
         elif isinstance(chunk, str):
-            await channel.send(chunk)
+            await channel.send(chunk, silent=True)
         await asyncio.sleep(0.5)
 
 
@@ -67,7 +67,7 @@ class Message(commands.Cog):
         self.queue_at: dict[int, int] = {}
 
     async def cancel_message(self, channel: discord.TextChannel | discord.DMChannel):
-        if isinstance(self.finding_locations.get(channel.id), bool):
+        if self.finding_locations.get(channel.id):
             self.queue_at[channel.id] = self.queue_at.get(channel.id, 0)
             queue_number = self.queue_count.get(channel.id, 0)
             self.queue_count[channel.id] = queue_number + 1
