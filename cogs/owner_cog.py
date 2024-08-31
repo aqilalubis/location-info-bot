@@ -20,13 +20,15 @@ class Owner(commands.Cog):
     async def reload(self, interaction: discord.Interaction):
         synced = await self.bot.tree.sync()
         logger.info(f"Synced {len(synced)} app command(s)")
-        await interaction.response.send_message(f"Synced {len(synced)} app command(s)")
+        await interaction.response.send_message(
+            f"Synced {len(synced)} app command(s)", silent=True
+        )
 
     @app_commands.command()
     @commands.is_owner()
     async def shutdown(self, interaction: discord.Interaction):
         logger.info("Shutting down")
-        await interaction.response.send_message("Shutting down")
+        await interaction.response.send_message("Shutting down", silent=True)
         await self.bot.close()
 
 

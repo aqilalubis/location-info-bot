@@ -128,13 +128,13 @@ class Message(commands.Cog):
         if self.finding_locations.get(
             interaction.channel.id
         ) or self.current_messages.get(interaction.channel.id):
-            await interaction.response.send_message("Continuing...")
+            await interaction.response.send_message("Continuing...", silent=True)
         await self.cancel_message(interaction.channel)
         if not self.reply_locations.get(interaction.channel.id):
             if interaction.response.is_done():
-                await interaction.followup.send("No locations to continue.")
+                await interaction.followup.send("No locations to continue.", silent=True)
             else:
-                await interaction.response.send_message("No locations to continue.")
+                await interaction.response.send_message("No locations to continue.", silent=True)
             self.finding_locations[interaction.channel.id] = False
             return
 
@@ -184,8 +184,8 @@ class Message(commands.Cog):
 
         if interaction is not None:
             if interaction.response.is_done():
-                await interaction.followup.send(reply.pop(0))
+                await interaction.followup.send(reply.pop(0), silent=True)
             else:
-                await interaction.response.send_message(reply.pop(0))
+                await interaction.response.send_message(reply.pop(0), silent=True)
         await send_chunks(channel, reply)
         del self.current_messages[channel.id]

@@ -30,7 +30,7 @@ async def setup(bot: MyBot):
 
 
 def is_textchannel():
-    def predicate(interaction: discord.Interaction):
+    def predicate(interaction: discord.Interaction) -> bool:
         return isinstance(interaction.channel, (discord.TextChannel))
 
     return app_commands.check(predicate)
@@ -87,7 +87,9 @@ class LocationSelect(discord.ui.Select):
         super().__init__(placeholder="Choose a more specific location", options=options)
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f"You chose {self.values[0]}.")
+        await interaction.response.send_message(
+            f"You chose {self.values[0]}.", silent=True
+        )
         await self.coroutines[self.location_names.index(self.values[0])]
 
 
@@ -104,7 +106,9 @@ async def convert_to_possible_locations(
 
     if initial is None:
         possible_locations = [await locations.random_location()]
-        await ctx.send(f"Random location chosen: {possible_locations[0].name}")
+        await ctx.send(
+            f"Random location chosen: {possible_locations[0].name}", silent=True
+        )
     else:
         await ctx.defer()
         possible_locations = await locations.get_possible_locations(initial)
@@ -151,7 +155,7 @@ class AdminCommands(commands.Cog):
     async def timed(self, ctx, members, start_time, total_time):
         while time.time() - start_time < total_time:
             await asyncio.sleep(0.5)
-        await ctx.send("Timed deport has expired:")
+        await ctx.send("Timed deport has expired:", silent=True)
         await asyncio.gather(self.import_members(ctx, members))
 
     async def deport_members(
@@ -172,7 +176,7 @@ class AdminCommands(commands.Cog):
                 member.name == deport_dict["member"]
                 for deport_dict in self.deported.get(ctx.guild.id, [])
             ):
-                await ctx.send(f"{member} is already deported.")
+                await ctx.send(f"{member} is already deported.", silent=True)
                 members.remove(member)
         if not members:
             return
@@ -185,7 +189,8 @@ class AdminCommands(commands.Cog):
             loc_channel = await get_channel(location.name, ctx.guild, reason)
         except Exception:
             await ctx.send(
-                "Existing channel of the location already exists that is not a text channel."
+                "Existing channel of the location already exists that is not a text channel.",
+                silent=True,
             )
 
         # Create location role
@@ -229,7 +234,7 @@ class AdminCommands(commands.Cog):
         deported_message += f"{member.name} deported to {location.name}."
         if reason:
             deported_message = deported_message[:-1] + f" for reason: {reason}."
-        await ctx.send(deported_message)
+        await ctx.send(deported_message, silent=True)
         if loc_channel != ctx.channel:
             await loc_channel.send(deported_message, silent=True)
 
@@ -264,7 +269,7 @@ class AdminCommands(commands.Cog):
         possible_locations = await convert_to_possible_locations(ctx, location)
 
         if isinstance(seconds, int) and seconds <= 0:
-            await ctx.send("Please input a positive number of seconds")
+            await ctx.send("Please input a positive number of seconds", silent=True)
             raise commands.BadArgument
 
         if len(possible_locations) > 1:
@@ -282,6 +287,7 @@ class AdminCommands(commands.Cog):
             await interaction.followup.send(
                 "Multiple locations by the same name were found, choose a more specific location.",
                 view=LocationView(location_names, coroutines),
+                silent=True,
             )
             return
 
@@ -301,6 +307,8 @@ class AdminCommands(commands.Cog):
             )
             logger.info(error_message)
             await ctx.send(error_message)
+        if isinstance(error, app_commands.CheckFailure):
+            await ctx.send("Deport can only be called in a text channel.", silent=True)
 
     async def import_members(
         self, ctx: commands.Context, members: list[discord.Member]
@@ -313,7 +321,7 @@ class AdminCommands(commands.Cog):
                 if member.name == deport_dict["member"]:
                     break
             else:
-                await ctx.send(f"{member} has not been deported.")
+                await ctx.send(f"{member} has not been deported.", silent=True)
                 return
             total_time = floor(time.time() - deport_dict["time"])
             self.deported[ctx.guild.id].remove(deport_dict)
@@ -350,7 +358,8 @@ class AdminCommands(commands.Cog):
 
             await ctx.send(
                 f'{member.name} has been imported from {deport_dict["location"]} after '
-                f"{total_time} seconds."
+                f"{total_time} seconds.",
+                silent=True,
             )
         self.deporting[ctx.guild.id] = False
 
@@ -366,3 +375,20 @@ class AdminCommands(commands.Cog):
     ):
         ctx = await commands.Context.from_interaction(interaction)
         await self.import_members(ctx, members)
+
+    @_import.error
+    async def import_error(
+        self, interaction: discord.Interaction, error: app_commands.AppCommandError
+    ):
+        ctx = await commands.Context.from_interaction(interaction)
+        if isinstance(error, app_commands.TransformerError):
+            error_message = (
+                str(error).split()[0].title()
+                + " "
+                + " ".join(str(error).split()[1:]).lower()
+                + "."
+            )
+            logger.info(error_message)
+            await ctx.send(error_message, silent=True)
+        if isinstance(error, app_commands.CheckFailure):
+            await ctx.send("Import can only be called in a text channel.", silent=True)
